@@ -77,7 +77,7 @@ sql-injection-demo/
 
 ```bash
 # 1. Clone or download the project
-git clone <your-repo-url>
+git clone https://github.com/ROHANNAGRE18/sql-injection-lab.git
 cd sql-injection-demo
 
 # 2. Install dependencies
