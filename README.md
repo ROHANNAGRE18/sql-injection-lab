@@ -201,3 +201,11 @@ This application **intentionally contains a SQL Injection vulnerability** for co
 - The credentials used are entirely fake and are not connected to any real service
 
 Unauthorized access to computer systems is illegal. This lab exists solely to help developers understand and prevent vulnerabilities.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+You are free to use, copy, modify, and distribute this project for educational purposes. If you share or adapt it, please keep the disclaimer and educational context intact.
