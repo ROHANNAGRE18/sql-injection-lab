@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Injection Security Lab</title>
+  <meta name="description" content="An interactive cybersecurity lab demonstrating SQL Injection vulnerabilities and secure parameterized query defenses." />
+
+  <!-- Google Fonts — Inter + JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       DISCLAIMER BANNER
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="disclaimer-banner" role="alert">
+    ⚠️&nbsp; <strong>EDUCATIONAL SECURITY LAB</strong> — This application intentionally contains a SQL Injection vulnerability for controlled cybersecurity education.
+    Run locally or in an authorized lab environment only. Never use these techniques against systems without explicit permission.
+  </div>
+
+  <div class="page-wrapper">
+
+    <!-- ════════════════════════════════════════════════════════════════
+         HEADER
+    ════════════════════════════════════════════════════════════════ -->
+    <header class="site-header">
+      <div class="header-badge">
+        <span class="dot" aria-hidden="true"></span>
+        LOCAL EDUCATIONAL LAB
+      </div>
+      <h1 class="site-title">SQL Injection Security Lab</h1>
+      <p class="site-subtitle">Understand &nbsp;·&nbsp; Exploit &nbsp;·&nbsp; Mitigate</p>
+    </header>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         SECTION 1 — INTRODUCTION
+    ════════════════════════════════════════════════════════════════ -->
+    <section aria-labelledby="intro-heading">
+      <div class="section-label">
+        <span>01</span>
+        <span>—</span>
+        <span>Overview</span>
+      </div>
+      <h2 class="section-title" id="intro-heading">What is SQL Injection?</h2>
+      <p class="section-desc">
+        SQL Injection occurs when untrusted user input is incorporated directly into SQL queries,
+        allowing an attacker to manipulate the intended database operation — bypassing authentication,
+        extracting data, or even destroying records. It remains one of the most critical web
+        vulnerabilities according to the <strong style="color:var(--cyan)">OWASP Top 10</strong>.
+      </p>
+
+      <div class="intro-grid">
+
+        <!-- Vulnerable path -->
+        <div class="intro-card vulnerable">
+          <div class="intro-card-badge">⚠️ Vulnerable Path</div>
+          <h3>String Concatenation → Injection → Bypass</h3>
+          <p>User input is inserted directly into the SQL string. Special characters can escape the
+             intended context and modify the query structure — turning a login check into a tautology.</p>
+          <div class="flow-arrow">
+            <div class="step"><span class="arrow">→</span><span class="label">Attacker enters:</span>&nbsp;<code style="color:var(--yellow);">' OR 1=1--</code></div>
+            <div class="step danger"><span class="arrow">→</span><span class="label">String concat modifies query structure</span></div>
+            <div class="step danger"><span class="arrow">→</span><span class="label">WHERE clause becomes always-true</span></div>
+            <div class="step danger"><span class="arrow">→</span><span class="label">🚨 Authentication bypassed</span></div>
+          </div>
+        </div>
+
+        <!-- Secure path -->
+        <div class="intro-card secure">
+          <div class="intro-card-badge">🛡️ Secure Path</div>
+          <h3>Parameterized Query → Input as Data → Blocked</h3>
+          <p>User input is passed as a bound parameter, never as SQL syntax. The database driver
+             handles serialisation; the query structure is fixed at parse time and cannot be changed
+             by any input value.</p>
+          <div class="flow-arrow">
+            <div class="step"><span class="arrow">→</span><span class="label">Same payload entered</span></div>
+            <div class="step success"><span class="arrow">→</span><span class="label">Input bound as data, not SQL</span></div>
+            <div class="step success"><span class="arrow">→</span><span class="label">Query structure unchanged</span></div>
+            <div class="step success"><span class="arrow">→</span><span class="label">🛡️ Attack blocked</span></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         SECTION 2 — VULNERABLE VS SECURE CODE
+    ════════════════════════════════════════════════════════════════ -->
+    <section aria-labelledby="code-heading">
+      <div class="section-label"><span>02</span><span>—</span><span>Implementation</span></div>
+      <h2 class="section-title" id="code-heading">Vulnerable vs Secure Code</h2>
+      <p class="section-desc">
+        Both endpoints use the same database and accept the same inputs. The only difference is
+        how user input is incorporated into the SQL statement — and that single difference
+        determines whether the application is exploitable.
+      </p>
+
+      <div class="comparison-grid">
+
+        <!-- Vulnerable code card -->
+        <div class="comparison-card vulnerable">
+          <div class="comparison-card-header">
+            <h3>⚠️ Vulnerable Implementation</h3>
+            <span class="tag tag-danger">String Concatenation</span>
+          </div>
+          <div class="comparison-card-body">
+            <p>User input is directly inserted into the SQL string. Special SQL characters — especially
+               the single quote <code>'</code> — can escape the string context and alter query logic.</p>
+            <div class="code-block">
+              <span class="code-label">Node.js / SQLite3</span>
+              <pre><code><span class="cmt">// INTENTIONALLY VULNERABLE — EDUCATIONAL USE ONLY
+// Input is concatenated directly into the SQL string.</span>
+
+<span class="kw">const</span> <span class="var">query</span> = <span class="str">`SELECT * FROM users
+  WHERE username = '<span class="sql-inj">${username}</span>'
+  AND password = '<span class="sql-inj">${password}</span>'`</span>;
+
+db.<span class="fn">get</span>(<span class="var">query</span>, callback);</code></pre>
+            </div>
+            <p class="mt-16" style="font-size:0.8rem;">
+              When <code style="color:var(--yellow);">' OR '1'='1</code> is entered as username,
+              the query becomes:<br />
+              <code style="color:var(--red);font-size:0.78rem;">...WHERE username = '' OR '1'='1' AND password = ''</code>
+              — the <code>OR '1'='1'</code> is always true, matching every row.
+            </p>
+          </div>
+        </div>
+
+        <!-- Secure code card -->
+        <div class="comparison-card secure">
+          <div class="comparison-card-header">
+            <h3>🛡️ Secure Implementation</h3>
+            <span class="tag tag-success">Parameterized Query</span>
+          </div>
+          <div class="comparison-card-body">
+            <p>Placeholders (<code>?</code>) mark where values will be bound. The database driver
+               serialises input as data — the query structure is compiled before any user value
+               is ever substituted.</p>
+            <div class="code-block">
+              <span class="code-label">Node.js / SQLite3</span>
+              <pre><code><span class="cmt">// SECURE: parameterized query.
+// Input is bound as data — never executable SQL.</span>
+
+<span class="kw">const</span> <span class="var">query</span> = <span class="str">`SELECT * FROM users
+  WHERE username = <span class="param">?</span>
+  AND password = <span class="param">?</span>`</span>;
+
+db.<span class="fn">get</span>(<span class="var">query</span>, [<span class="var">username</span>, <span class="var">password</span>], callback);</code></pre>
+            </div>
+            <p class="mt-16" style="font-size:0.8rem;">
+              The same payload <code style="color:var(--yellow);">' OR '1'='1</code> is treated as
+              a literal string value. The database searches for a username <em>equal to</em> that
+              whole string — which doesn't exist — so login is denied.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         SECTION 3 — INTERACTIVE LAB
+    ════════════════════════════════════════════════════════════════ -->
+    <section id="lab-section" aria-labelledby="lab-heading">
+      <div class="section-label"><span>03</span><span>—</span><span>Interactive Lab</span></div>
+      <h2 class="section-title" id="lab-heading">Try It Yourself</h2>
+      <p class="section-desc">
+        Submit the same credentials to both endpoints and observe how the application
+        responds. Use the payload cheatsheet below to quickly fill in test values.
+      </p>
+
+      <div class="lab-grid">
+
+        <!-- ── Panel 1: Vulnerable ── -->
+        <div class="lab-panel vulnerable">
+          <div class="lab-panel-header">
+            <div class="lab-panel-header-text">
+              <h3>⚠️ Vulnerable Login</h3>
+              <p>POST /login-vulnerable</p>
+            </div>
+            <span class="tag tag-danger">Unsafe</span>
+          </div>
+          <div class="lab-panel-body">
+
+            <div class="panel-warning">
+              <span aria-hidden="true">⚠️</span>
+              <span>This endpoint is intentionally vulnerable. Use only within this local lab.</span>
+            </div>
+
+            <form id="vuln-form" novalidate>
+              <div class="form-group">
+                <label for="vuln-username">Username</label>
+                <input type="text" id="vuln-username" name="username"
+                       placeholder="e.g. admin  or  ' OR '1'='1"
+                       autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="form-group">
+                <label for="vuln-password">Password</label>
+                <input type="password" id="vuln-password" name="password"
+                       placeholder="enter password or leave blank for injection"
+                       autocomplete="off" />
+              </div>
+              <button type="submit" id="vuln-btn" class="btn btn-vulnerable">
+                ⚡ Test Vulnerable Login
+              </button>
+            </form>
+
+            <!-- Live query preview -->
+            <div class="query-viz mt-16">
+              <div class="query-viz-label">
+                <span>📋</span>
+                <span>Live SQL Preview — updates as you type</span>
+              </div>
+              <div class="query-viz-sql" id="vuln-live-preview" aria-live="polite">
+<span class="sql-kw">SELECT</span> * <span class="sql-kw">FROM</span> users
+<span class="sql-kw">WHERE</span> username = '<span class="sql-str">username</span>'
+<span class="sql-kw">AND</span> password = '<span class="sql-str">password</span>'</div>
+            </div>
+
+            <!-- Result -->
+            <div id="vuln-result" class="result-box" role="status" aria-live="polite"></div>
+
+            <!-- Executed query visualization (shown after submit) -->
+            <div id="vuln-query-block" class="query-viz mt-16" style="display:none;">
+              <div class="query-viz-label">
+                <span>🔴</span>
+                <span>Executed SQL Query</span>
+              </div>
+              <div class="query-viz-sql" id="vuln-query-sql"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── Panel 2: Secure ── -->
+        <div class="lab-panel secure">
+          <div class="lab-panel-header">
+            <div class="lab-panel-header-text">
+              <h3>🛡️ Secure Login</h3>
+              <p>POST /login-secure</p>
+            </div>
+            <span class="tag tag-success">Protected</span>
+          </div>
+          <div class="lab-panel-body">
+
+            <div class="panel-info">
+              <span aria-hidden="true">ℹ️</span>
+              <span>Uses a parameterized query. The same payload is treated as literal data.</span>
+            </div>
+
+            <form id="secure-form" novalidate>
+              <div class="form-group">
+                <label for="secure-username">Username</label>
+                <input type="text" id="secure-username" name="username"
+                       placeholder="e.g. admin  or  ' OR '1'='1"
+                       autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="form-group">
+                <label for="secure-password">Password</label>
+                <input type="password" id="secure-password" name="password"
+                       placeholder="enter password"
+                       autocomplete="off" />
+              </div>
+              <button type="submit" id="secure-btn" class="btn btn-secure">
+                🛡️ Test Secure Login
+              </button>
+            </form>
+
+            <!-- Secure query — static, always parameterized -->
+            <div class="query-viz mt-16">
+              <div class="query-viz-label">
+                <span>📋</span>
+                <span>Query Structure — always fixed regardless of input</span>
+              </div>
+              <div class="query-viz-sql">
+<span class="sql-kw">SELECT</span> * <span class="sql-kw">FROM</span> users
+<span class="sql-kw">WHERE</span> username = <span class="sql-param">?</span>
+<span class="sql-kw">AND</span> password = <span class="sql-param">?</span>
+
+<span style="color:var(--text-muted);font-style:italic;">-- Input bound as data at runtime
+-- Structure cannot be altered by any value</span></div>
+            </div>
+
+            <!-- Result -->
+            <div id="secure-result" class="result-box" role="status" aria-live="polite"></div>
+
+            <!-- Executed query visualization (shown after submit) -->
+            <div id="secure-query-block" class="query-viz mt-16" style="display:none;">
+              <div class="query-viz-label">
+                <span>🟢</span>
+                <span>Executed SQL Query</span>
+              </div>
+              <div class="query-viz-sql" id="secure-query-sql"></div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /.lab-grid -->
+
+      <!-- ── Payload Cheatsheet ── -->
+      <div class="cheatsheet" style="margin-top:28px;">
+        <h3>💡 Payload Cheatsheet <span style="font-size:0.78rem;font-weight:400;color:var(--text-muted);margin-left:8px;">Click any payload to fill both panels</span></h3>
+        <div class="payload-grid">
+
+          <div class="payload-item">
+            <h4>✅ Valid Login</h4>
+            <div class="payload-row">
+              <span class="pl-label">Username</span>
+              <span class="pl-value" data-fill-user="admin" data-fill-pass="Admin@Lab123" title="Click to fill">admin</span>
+            </div>
+            <div class="payload-row">
+              <span class="pl-label">Password</span>
+              <span class="pl-value" data-fill-user="admin" data-fill-pass="Admin@Lab123" title="Click to fill">Admin@Lab123</span>
+            </div>
+          </div>
+
+          <div class="payload-item">
+            <h4>✅ Valid Login (Regular User)</h4>
+            <div class="payload-row">
+              <span class="pl-label">Username</span>
+              <span class="pl-value" data-fill-user="alice" data-fill-pass="Alice@Pass456" title="Click to fill">alice</span>
+            </div>
+            <div class="payload-row">
+              <span class="pl-label">Password</span>
+              <span class="pl-value" data-fill-user="alice" data-fill-pass="Alice@Pass456" title="Click to fill">Alice@Pass456</span>
+            </div>
+          </div>
+
+          <div class="payload-item">
+            <h4>❌ Wrong Password</h4>
+            <div class="payload-row">
+              <span class="pl-label">Username</span>
+              <span class="pl-value" data-fill-user="admin" data-fill-pass="wrongpassword" title="Click to fill">admin</span>
+            </div>
+            <div class="payload-row">
+              <span class="pl-label">Password</span>
+              <span class="pl-value" data-fill-user="admin" data-fill-pass="wrongpassword" title="Click to fill">wrongpassword</span>
+            </div>
+          </div>
+
+          <div class="payload-item">
+            <h4>🚨 Comment-Out Bypass</h4>
+            <div class="payload-row">
+              <span class="pl-label">Username</span>
+              <span class="pl-value" data-fill-user="' OR 1=1--" data-fill-pass="" title="Click to fill">' OR 1=1--</span>
+            </div>
+            <div class="payload-row">
+              <span class="pl-label">Password</span>
+              <span class="pl-value muted" data-fill-user="' OR 1=1--" data-fill-pass="" title="Click to fill">(leave blank)</span>
+            </div>
+          </div>
+
+          <div class="payload-item">
+            <h4>🚨 Comment-Based Bypass</h4>
+            <div class="payload-row">
+              <span class="pl-label">Username</span>
+              <span class="pl-value" data-fill-user="admin'--" data-fill-pass="" title="Click to fill">admin'--</span>
+            </div>
+            <div class="payload-row">
+              <span class="pl-label">Password</span>
+              <span class="pl-value muted" data-fill-user="admin'--" data-fill-pass="" title="Click to fill">(leave blank)</span>
+            </div>
+          </div>
+
+          <div class="payload-item">
+            <h4>🚨 Always-True in Password</h4>
+            <div class="payload-row">
+              <span class="pl-label">Username</span>
+              <span class="pl-value" data-fill-user="admin" data-fill-pass="' OR '1'='1" title="Click to fill">admin</span>
+            </div>
+            <div class="payload-row">
+              <span class="pl-label">Password</span>
+              <span class="pl-value" data-fill-user="admin" data-fill-pass="' OR '1'='1" title="Click to fill">' OR '1'='1</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         SECTION 4 — ATTACK FLOW VISUALIZATION
+    ════════════════════════════════════════════════════════════════ -->
+    <section aria-labelledby="flow-heading">
+      <div class="section-label"><span>04</span><span>—</span><span>Attack Flow</span></div>
+      <h2 class="section-title" id="flow-heading">How the Attack Works</h2>
+      <p class="section-desc">
+        A side-by-side view of what happens inside the application — from attacker input
+        through to the database response — in both the vulnerable and secure scenarios.
+      </p>
+
+      <div class="attack-flow-grid">
+
+        <!-- Vulnerable flow -->
+        <div class="flow-card danger-flow">
+          <h3><span>🚨</span> Vulnerable Application Flow</h3>
+          <div class="flow-steps">
+
+            <div class="flow-step">
+              <div class="flow-step-icon">🎯</div>
+              <div class="flow-step-content">
+                <h4>Attacker Input</h4>
+                <p>Username: <code style="color:var(--yellow);">' OR 1=1--</code> &nbsp;/ Password: (blank)</p>
+              </div>
+            </div>
+
+            <div class="flow-step">
+              <div class="flow-step-icon">⚙️</div>
+              <div class="flow-step-content">
+                <h4>String Concatenation</h4>
+                <p>Input is directly embedded into the SQL string. The single quote closes the first
+                   string literal; <code>OR '1'='1'</code> becomes valid SQL appended to the query.</p>
+              </div>
+            </div>
+
+            <div class="flow-step">
+              <div class="flow-step-icon">💀</div>
+              <div class="flow-step-content">
+                <h4>Query Structure Modified</h4>
+                <p>
+                  <code style="color:var(--red);font-size:0.75rem;word-break:break-all;">
+                    WHERE username = '' OR 1=1--' AND password = ''
+                  </code><br/>
+                  The <code>--</code> comments out everything after it. The <code>OR 1=1</code> tautology makes the WHERE clause always true.
+                </p>
+              </div>
+            </div>
+
+            <div class="flow-step">
+              <div class="flow-step-icon">🗄️</div>
+              <div class="flow-step-content">
+                <h4>Database Executes</h4>
+                <p>All rows match. The first row (admin) is returned. No password was checked.</p>
+              </div>
+            </div>
+
+            <div class="flow-step">
+              <div class="flow-step-icon">🔓</div>
+              <div class="flow-step-content" style="padding-bottom:0;">
+                <h4>Unauthorized Access</h4>
+                <p>The application believes authentication succeeded. The attacker is logged in as admin.</p>
+              </div>
+            </div>
+
+          </div>
+          <div class="flow-outcome danger">🚨 Authentication Bypassed — Unauthorized Access Granted</div>
+        </div>
+
+        <!-- Secure flow -->
+        <div class="flow-card safe-flow">
+          <h3><span>🛡️</span> Secure Application Flow</h3>
+          <div class="flow-steps">
+
+            <div class="flow-step">
+              <div class="flow-step-icon">🎯</div>
+              <div class="flow-step-content">
+                <h4>Attacker Input</h4>
+                <p>Same payload: <code style="color:var(--yellow);">' OR '1'='1</code></p>
+              </div>
+            </div>
+
+            <div class="flow-step">
+              <div class="flow-step-icon">⚙️</div>
+              <div class="flow-step-content">
+                <h4>Parameterized Query</h4>
+                <p>The query template is compiled first: <code>WHERE username = ? AND password = ?</code>.
+                   The <code>?</code> placeholders are filled in afterwards as data values.</p>
+              </div>
+            </div>
+
+            <div class="flow-step">
+              <div class="flow-step-icon">🔒</div>
+              <div class="flow-step-content">
+                <h4>Input Bound as Data</h4>
+                <p>The driver serialises the payload as a string literal. No SQL characters
+                   from user input can alter the compiled query structure.</p>
+              </div>
+            </div>
+
+            <div class="flow-step">
+              <div class="flow-step-icon">🗄️</div>
+              <div class="flow-step-content">
+                <h4>Database Executes Safely</h4>
+                <p>Searches for a username literally equal to <code>' OR '1'='1</code> — which does
+                   not exist in the table. Zero rows returned.</p>
+              </div>
+            </div>
+
+            <div class="flow-step">
+              <div class="flow-step-icon">🛡️</div>
+              <div class="flow-step-content" style="padding-bottom:0;">
+                <h4>Access Denied</h4>
+                <p>No row matched — authentication fails. The attack has no effect.</p>
+              </div>
+            </div>
+
+          </div>
+          <div class="flow-outcome success">🛡️ Attack Neutralized — Access Correctly Denied</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         SECTION 5 — SECURITY COMPARISON TABLE
+    ════════════════════════════════════════════════════════════════ -->
+    <section aria-labelledby="table-heading">
+      <div class="section-label"><span>05</span><span>—</span><span>Comparison</span></div>
+      <h2 class="section-title" id="table-heading">Security Comparison</h2>
+      <p class="section-desc">
+        A direct comparison of the two approaches across the properties that matter most
+        for secure authentication.
+      </p>
+
+      <div class="table-wrapper">
+        <table class="comparison-table" aria-label="Vulnerability comparison between string concatenation and parameterized queries">
+          <thead>
+            <tr>
+              <th scope="col">Feature</th>
+              <th scope="col" class="col-vuln">⚠️ Vulnerable</th>
+              <th scope="col" class="col-secure">🛡️ Secure</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>SQL Construction</td>
+              <td class="cell-bad">String concatenation</td>
+              <td class="cell-good">Parameterized query</td>
+            </tr>
+            <tr>
+              <td>User Input Role</td>
+              <td class="cell-bad">Part of SQL syntax</td>
+              <td class="cell-good">Treated as data only</td>
+            </tr>
+            <tr>
+              <td>SQL Injection</td>
+              <td class="cell-bad">Possible</td>
+              <td class="cell-good">Prevented</td>
+            </tr>
+            <tr>
+              <td>Authentication Bypass</td>
+              <td class="cell-bad">Possible</td>
+              <td class="cell-good">Blocked</td>
+            </tr>
+            <tr>
+              <td>Query Structure</td>
+              <td class="cell-bad">Modifiable by input</td>
+              <td class="cell-good">Fixed at parse time</td>
+            </tr>
+            <tr>
+              <td>Error Handling Risk</td>
+              <td class="cell-bad">DB errors leak details</td>
+              <td class="cell-good">Controlled error handling</td>
+            </tr>
+            <tr>
+              <td>Recommended for Production</td>
+              <td class="cell-bad">❌ Never</td>
+              <td class="cell-good">✅ Yes</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         SECTION 6 — WHAT YOU LEARN
+    ════════════════════════════════════════════════════════════════ -->
+    <section aria-labelledby="learn-heading">
+      <div class="section-label"><span>06</span><span>—</span><span>Learning Outcomes</span></div>
+      <h2 class="section-title" id="learn-heading">What You Learn</h2>
+      <p class="section-desc">
+        This lab is designed to build foundational knowledge of web application security,
+        covering the attack, the root cause, and the correct defensive techniques.
+      </p>
+
+      <div class="learn-grid">
+
+        <div class="learn-card">
+          <div class="learn-card-icon" aria-hidden="true">💉</div>
+          <h4>SQL Injection</h4>
+          <p>SQL Injection occurs when user-supplied input is embedded in a query without
+             sanitisation or parameterization, allowing an attacker to alter the query's
+             intended logic. It is ranked in the <strong>OWASP Top 10</strong> most critical
+             web application security risks.</p>
+        </div>
+
+        <div class="learn-card">
+          <div class="learn-card-icon" aria-hidden="true">🔓</div>
+          <h4>Authentication Bypass</h4>
+          <p>A boolean injection payload such as <code>' OR '1'='1</code> appends a tautology
+             (<em>always-true condition</em>) to the WHERE clause. Every row matches, so the first
+             database user is returned — regardless of the password supplied.</p>
+        </div>
+
+        <div class="learn-card">
+          <div class="learn-card-icon" aria-hidden="true">🛡️</div>
+          <h4>Prepared Statements</h4>
+          <p>A prepared statement (parameterized query) separates SQL code from data. The query
+             template is compiled by the database engine <em>before</em> user input is bound.
+             User values cannot break out of their data context and alter query logic.</p>
+        </div>
+
+        <div class="learn-card">
+          <div class="learn-card-icon" aria-hidden="true">✍️</div>
+          <h4>Secure Coding</h4>
+          <p>The root cause of SQL Injection is trusting user input. The fix is to
+             <strong>never</strong> incorporate raw user input into a SQL statement.
+             Always use parameterized queries or an ORM that handles parameterization internally.</p>
+        </div>
+
+        <div class="learn-card">
+          <div class="learn-card-icon" aria-hidden="true">🔐</div>
+          <h4>Defense in Depth</h4>
+          <p>Parameterized queries are the primary defence against SQL Injection. Additional layers include:</p>
+          <ul>
+            <li>Input validation and length limits</li>
+            <li>Least-privilege database accounts</li>
+            <li>Proper password hashing (bcrypt / Argon2)</li>
+            <li>Structured error handling — never expose raw DB errors</li>
+            <li>Application logging and anomaly monitoring</li>
+            <li>Regular security testing (SAST, DAST, penetration testing)</li>
+          </ul>
+        </div>
+
+        <div class="learn-card">
+          <div class="learn-card-icon" aria-hidden="true">📋</div>
+          <h4>OWASP &amp; Standards</h4>
+          <p>SQL Injection falls under <strong>A03:2021 — Injection</strong> in the OWASP Top 10.
+             The OWASP SQL Injection Prevention Cheat Sheet recommends parameterized queries as the
+             primary control, with stored procedures and allow-list input validation as supplementary
+             defences.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         FOOTER
+    ════════════════════════════════════════════════════════════════ -->
+    <footer class="site-footer">
+      <div class="footer-title">SQL Injection Security Lab</div>
+      <div class="footer-tags">
+        <span class="footer-tag">SQL Injection</span>
+        <span class="footer-tag">OWASP</span>
+        <span class="footer-tag">Secure Coding</span>
+        <span class="footer-tag">Prepared Statements</span>
+        <span class="footer-tag">Web Security</span>
+        <span class="footer-tag">Node.js</span>
+        <span class="footer-tag">SQLite</span>
+      </div>
+      <p class="footer-note">Built for Cybersecurity Education &nbsp;·&nbsp; Local Lab Use Only</p>
+    </footer>
+
+  </div><!-- /.page-wrapper -->
+
+  <script src="script.js"></script>
+</body>
+</html>
