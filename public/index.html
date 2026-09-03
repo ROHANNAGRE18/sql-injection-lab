@@ -19,8 +19,11 @@
        DISCLAIMER BANNER
   ════════════════════════════════════════════════════════════════ -->
   <div class="disclaimer-banner" role="alert">
-    ⚠️&nbsp; <strong>EDUCATIONAL SECURITY LAB</strong> — This application intentionally contains a SQL Injection vulnerability for controlled cybersecurity education.
-    Run locally or in an authorized lab environment only. Never use these techniques against systems without explicit permission.
+    ⚠️&nbsp; <strong>EDUCATIONAL SECURITY LAB</strong> —
+    <span class="disclaimer-full">This application intentionally contains a SQL Injection vulnerability for controlled cybersecurity education.
+    Run locally or in an authorized lab environment only. Never use these techniques against systems without explicit permission.</span>
+    <span class="disclaimer-short">Intentional SQL Injection vulnerability — for education only. <a href="#" onclick="this.closest('.disclaimer-banner').querySelector('.disclaimer-short').style.display='none';this.closest('.disclaimer-banner').querySelector('.disclaimer-full-mobile').style.display='inline';return false;" style="color:var(--orange);text-decoration:underline;">Read more</a></span>
+    <span class="disclaimer-full-mobile" style="display:none;">This application intentionally contains a SQL Injection vulnerability for controlled cybersecurity education. Run locally or in an authorized lab environment only. Never use these techniques against systems without explicit permission.</span>
   </div>
 
   <div class="page-wrapper">

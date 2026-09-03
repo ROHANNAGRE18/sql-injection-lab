@@ -1026,6 +1026,10 @@ pre, code {
   outline-offset: 2px;
 }
 
+/* desktop: show full, hide short */
+.disclaimer-short { display: none; }
+.disclaimer-full  { display: inline; }
+
 /* =========================================================================
    MOBILE RESPONSIVE — max-width: 640px
    Covers phones in portrait and landscape
@@ -1041,9 +1045,18 @@ pre, code {
   /* --- Disclaimer banner --- */
   .disclaimer-banner {
     font-size: 11px;
-    padding: 10px 16px;
-    line-height: 1.55;
+    padding: 8px 16px;
+    line-height: 1.5;
     text-align: left;
+    position: relative; /* not sticky on mobile — too much space */
+  }
+
+  .disclaimer-banner .disclaimer-full {
+    display: none;
+  }
+
+  .disclaimer-banner .disclaimer-short {
+    display: inline;
   }
 
   /* --- Header --- */
@@ -1211,10 +1224,28 @@ pre, code {
 
   .payload-item {
     padding: 13px;
+    overflow: hidden;
+  }
+
+  .payload-row {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .payload-row .pl-label {
+    min-width: 58px;
+    font-size: 0.7rem;
+    flex-shrink: 0;
   }
 
   .payload-row .pl-value {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
+    padding: 3px 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
   }
 
   /* --- Attack flow --- */
